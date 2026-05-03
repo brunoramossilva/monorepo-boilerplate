@@ -1,0 +1,30 @@
+{
+    "name": "monorepo-boilerplate",
+    "private": true,
+    "packageManager": "pnpm@9.0.0",
+    "scripts": {
+        "dev": "turbo run dev --filter=web --filter=mobile --parallel",
+        "build": "turbo run build",
+        "lint": "turbo run lint",
+        "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+        "dev:web": "turbo run dev --filter=web",
+        "dev:server": "docker-compose up -d backend postgres adminer",
+        "dev:mobile": "turbo run dev --filter=mobile",
+        "db:push": "pnpm --filter server db:push",
+        "db:migrate": "pnpm --filter server db:migrate",
+        "db:studio": "pnpm --filter server db:studio",
+        "db:generate": "pnpm --filter server db:generate",
+        "docker:up": "docker-compose up -d backend postgres adminer",
+        "docker:down": "docker-compose down",
+        "docker:logs": "docker-compose logs -f backend"
+    },
+    "devDependencies": {
+        "turbo": "^2.0.0",
+        "prettier": "^3.0.0",
+        "typescript": "^5.0.0"
+    },
+    "engines": {
+        "node": ">=20",
+        "pnpm": ">=9"
+    }
+}
