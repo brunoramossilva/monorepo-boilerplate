@@ -1,0 +1,9 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+EXPOSE 3001
+
+CMD ["sh"]
