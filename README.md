@@ -1,25 +1,626 @@
-# monorepo-boilerplate
+<div align="center">
 
-Monorepo base para Web, Server e Mobile com pnpm workspaces e Turborepo.
+<h1>Monorepo Boilerplate</h1>
 
-Fluxo de desenvolvimento:
+<p><strong>Um monorepo TypeScript completo com Web, Server e Mobile.</strong></p>
 
-- web roda localmente em `apps/web`
-- mobile roda localmente em `apps/mobile`
-- backend, PostgreSQL e Adminer sobem no Docker via `docker-compose.yml`
+<br/>
 
-Estrutura principal:
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://prisma.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com/)
+[![Expo](https://img.shields.io/badge/Expo-SDK51-000020?style=flat-square&logo=expo&logoColor=white)](https://expo.dev/)
+[![Turborepo](https://img.shields.io/badge/Turborepo-2.x-EF4444?style=flat-square&logo=turborepo&logoColor=white)](https://turbo.build/)
+[![pnpm](https://img.shields.io/badge/pnpm-9.x-F69220?style=flat-square&logo=pnpm&logoColor=white)](https://pnpm.io/)
 
-- `apps/web`: Next.js + Tailwind
-- `apps/server`: Node.js + Prisma + PostgreSQL
-- `apps/mobile`: Expo + React Native
-- `packages/types`: tipos compartilhados
-- `packages/utils`: utilitarios compartilhados
-- `packages/config`: configs comuns
+<br/>
 
-Comandos úteis:
+```
+apps/
+├── web       → Next.js 15 + Tailwind CSS    [localhost:3000]
+├── server    → Fastify + Prisma + Docker    [localhost:3001]
+└── mobile    → React Native + Expo
+```
 
-- `pnpm dev` inicia só web + mobile localmente
-- `pnpm docker:up` sobe backend + banco + Adminer
-- `pnpm docker:logs` acompanha os logs do backend
-- `pnpm docker:down` derruba a stack Docker
+</div>
+
+---
+
+## 📋 Índice
+
+- [Visão Geral](#-visão-geral)
+- [Arquitetura](#-arquitetura)
+- [Stack Completa](#-stack-completa)
+- [Estrutura de Pastas](#-estrutura-de-pastas)
+- [Pré-requisitos](#-pré-requisitos)
+- [Instalação e Setup](#-instalação-e-setup)
+- [Como Rodar](#-como-rodar)
+- [Comandos](#-comandos)
+- [Variáveis de Ambiente](#-variáveis-de-ambiente)
+- [Banco de Dados](#-banco-de-dados)
+- [Docker](#-docker)
+- [Packages Compartilhados](#-packages-compartilhados)
+- [Convenções](#-convenções)
+- [Fluxo de Dados](#-fluxo-de-dados)
+- [Uso com IA](#-uso-com-ia)
+
+---
+
+## 🎯 Visão Geral
+
+Este repositório é um **boilerplate de monorepo**, um ponto de partida pré-configurado para produtos digitais que precisam de **site**, **API** e **app mobile** ao mesmo tempo.
+
+Em vez de criar e configurar três repositórios separados, você tem tudo em um único lugar com:
+
+- ✅ **TypeScript** em todas as camadas, com tipos compartilhados entre web, server e mobile
+- ✅ **Docker** para o server e banco de dados, sobe tudo com um comando
+- ✅ **Turborepo** para orquestrar builds e tasks com cache inteligente
+- ✅ **pnpm workspaces** para gerenciar as dependências do monorepo
+- ✅ **CONTEXT.md** otimizado para ferramentas de IA (Claude Code, Cursor, Copilot)
+
+> **Por que monorepo?** Com tudo no mesmo repositório, a IA enxerga o projeto inteiro: tipos do servidor, componentes do front e telas do mobile, sem perder contexto. Refatorações que afetam múltiplos apps acontecem em um único PR.
+
+---
+
+## 🏗 Arquitetura
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        MÁQUINA LOCAL                        │
+│                                                             │
+│   ┌──────────────┐         ┌──────────────────────────┐    │
+│   │   web        │         │   mobile                 │    │
+│   │  Next.js 15  │         │  React Native + Expo     │    │
+│   │  :3000       │         │  Expo Go (celular)       │    │
+│   └──────┬───────┘         └────────────┬─────────────┘    │
+│          │                              │                   │
+└──────────┼──────────────────────────────┼───────────────────┘
+           │  HTTP requests               │
+           │  localhost:3001              │
+┌──────────┼──────────────────────────────┼───────────────────┐
+│          │         DOCKER               │                   │
+│   ┌──────▼──────────────────────────────▼─────────────┐     │
+│   │                   server                          │     │
+│   │          Node.js + Fastify + Prisma               │     │
+│   │                   :3001                           │     │
+│   └──────────────────────┬────────────────────────────┘     │
+│                          │  prisma client                   │
+│   ┌──────────────────────▼────────────────────────────┐     │
+│   │                  PostgreSQL 16                    │     │
+│   │                     :5432                         │     │
+│   └───────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Serviço | Tecnologia | Onde roda | Porta |
+|---|---|---|---|
+| `web` | Next.js 15 + React 19 + Tailwind | Local | `3000` |
+| `server` | Node.js + Fastify + Prisma | Docker | `3001` |
+| `postgres` | PostgreSQL 16 | Docker | `5432` |
+| `mobile` | React Native + Expo | Local | |
+| Prisma Studio | Interface visual do banco | Local (quando ativo) | `5555` |
+| Adminer | GUI do banco (browser) | Docker | `8080` |
+
+---
+
+## 🛠 Stack Completa
+
+### Gerenciamento do Monorepo
+
+| Ferramenta | Versão | Para que serve |
+|---|---|---|
+| **pnpm** | 9.x | Gerenciador de pacotes com suporte nativo a workspaces |
+| **Turborepo** | 2.x | Orquestra builds, paraleliza tasks e gerencia cache |
+
+### App Web (`apps/web`)
+
+| Tecnologia | Versão | Para que serve |
+|---|---|---|
+| **Next.js** | 15 | Framework React com App Router, SSR, SSG e otimizações |
+| **React** | 19 | Biblioteca de interface de usuário |
+| **Tailwind CSS** | 4 | Framework CSS utilitário, estilos diretamente no JSX |
+| **TypeScript** | 5 | Tipagem estática em toda a aplicação |
+
+### App Server (`apps/server`)
+
+| Tecnologia | Versão | Para que serve |
+|---|---|---|
+| **Node.js** | 20 LTS | Runtime JavaScript no servidor |
+| **Fastify** | 5 | Framework HTTP rápido, tipado e baseado em plugins |
+| **@fastify/cors** | 10 | Política de CORS, permite requisições do web e mobile |
+| **Prisma** | 6 | ORM com interface TypeScript para o banco de dados |
+| **Zod** | 3 | Validação e parsing de dados nas requisições |
+| **tsx** | 4 | Executa TypeScript diretamente (dev com hot-reload) |
+
+### App Mobile (`apps/mobile`)
+
+| Tecnologia | Versão | Para que serve |
+|---|---|---|
+| **React Native** | | Apps iOS e Android com React e TypeScript |
+| **Expo** | SDK 51 | Plataforma de desenvolvimento que simplifica o React Native |
+| **Expo Router** | | Sistema de rotas baseado em arquivos (igual ao Next.js) |
+
+### Infraestrutura
+
+| Tecnologia | Versão | Para que serve |
+|---|---|---|
+| **Docker** | | Conteineriza server + banco de dados |
+| **docker-compose** | | Orquestra múltiplos containers com um comando |
+| **PostgreSQL** | 16 Alpine | Banco de dados relacional |
+
+---
+
+## 📁 Estrutura de Pastas
+
+```
+monorepo-boilerplate/
+│
+├── apps/
+│   ├── web/                    # Next.js + Tailwind (roda local)
+│   │   ├── src/
+│   │   │   ├── app/            # App Router, páginas e layouts
+│   │   │   ├── components/     # Componentes React reutilizáveis
+│   │   │   ├── hooks/          # Custom hooks
+│   │   │   ├── lib/            # Utilitários e configurações
+│   │   │   └── styles/         # CSS global
+│   │   ├── public/             # Arquivos estáticos
+│   │   ├── next.config.ts
+│   │   ├── tailwind.config.ts
+│   │   ├── tsconfig.json       # Extende packages/config/typescript/base.json
+│   │   └── package.json        # name: "web"
+│   │
+│   ├── server/                 # Fastify + Prisma (roda no Docker)
+│   │   ├── src/
+│   │   │   ├── routes/         # Definição das rotas HTTP
+│   │   │   ├── controllers/    # Handlers das requisições
+│   │   │   ├── services/       # Lógica de negócio
+│   │   │   ├── middlewares/    # Auth, logging, etc.
+│   │   │   └── index.ts        # Entry point
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma   # Estrutura do banco de dados
+│   │   │   └── migrations/     # Histórico de mudanças no banco
+│   │   ├── Dockerfile          # Multi-stage build
+│   │   ├── .env                # Variáveis de ambiente (não commitado)
+│   │   ├── tsconfig.json
+│   │   └── package.json        # name: "server"
+│   │
+│   └── mobile/                 # React Native + Expo (roda local)
+│       ├── src/
+│       │   ├── app/            # Expo Router, telas e navegação
+│       │   ├── components/     # Componentes React Native
+│       │   ├── hooks/          # Custom hooks
+│       │   └── lib/            # Utilitários
+│       ├── assets/             # Imagens, fontes, ícones
+│       ├── app.json            # Configuração do Expo
+│       ├── tsconfig.json
+│       └── package.json        # name: "mobile"
+│
+├── packages/                   # Código compartilhado entre os apps
+│   ├── types/                  # @repo/types, interfaces TypeScript
+│   │   └── src/index.ts
+│   ├── utils/                  # @repo/utils, funções utilitárias
+│   │   └── src/index.ts
+│   └── config/                 # @repo/config, ESLint e TSConfig base
+│       ├── eslint/index.js
+│       └── typescript/base.json
+│
+├── docker-compose.yml          # Sobe server + PostgreSQL
+├── turbo.json                  # Configuração do Turborepo
+├── pnpm-workspace.yaml         # Define os workspaces do pnpm
+├── package.json                # Scripts raiz + devDependencies globais
+├── .env.example                # Template das variáveis de ambiente
+├── .gitignore
+├── .npmrc
+├── CONTEXT.md                  # 🤖 Contexto da arquitetura para IAs
+└── README.md                   # Este arquivo
+```
+
+---
+
+## ✅ Pré-requisitos
+
+Antes de começar, verifique se você tem:
+
+```bash
+# Node.js 20 ou superior
+node --version   # deve mostrar v20.x.x ou superior
+
+# pnpm (instale se não tiver)
+pnpm --version   # deve mostrar 9.x.x
+# Para instalar: npm install -g pnpm
+
+# Docker Desktop rodando
+docker --version
+docker ps        # deve listar containers sem erro
+```
+
+> **Turborepo e Expo CLI não precisam ser instalados globalmente.** Ambos estão configurados como dependências do projeto e rodam automaticamente via `pnpm`.
+
+---
+
+## 🚀 Instalação e Setup
+
+> Execute estes comandos **uma única vez** após clonar o repositório.
+
+### 1. Clonar e entrar na pasta
+
+```bash
+git clone https://github.com/seu-usuario/monorepo-boilerplate.git
+cd monorepo-boilerplate
+```
+
+### 2. Instalar todas as dependências
+
+```bash
+pnpm install
+```
+
+Isso instala as dependências de **todos** os apps e packages de uma vez.
+
+### 3. Configurar as variáveis de ambiente
+
+```bash
+cp .env.example apps/web/.env.local
+cp .env.example apps/server/.env
+cp .env.example apps/mobile/.env
+```
+
+Edite cada arquivo e ajuste os valores conforme necessário. Veja a seção [Variáveis de Ambiente](#-variáveis-de-ambiente) para detalhes.
+
+### 4. Subir o banco de dados e o server
+
+```bash
+pnpm docker:up
+```
+
+Este comando sobe o **PostgreSQL** e o **server (Node.js/Fastify)** em containers Docker.
+
+### 5. Aplicar o schema no banco de dados
+
+```bash
+pnpm db:push
+```
+
+> ✅ Deve exibir: `Your database is now in sync with your Prisma schema`
+
+### 6. Verificar se tudo está funcionando
+
+```bash
+curl http://localhost:3001/health
+# Deve retornar: {"status":"ok"}
+```
+
+---
+
+## 💻 Como Rodar
+
+### Rodar tudo
+
+```bash
+# Terminal 1: sobe o Docker (server + banco)
+pnpm docker:up
+
+# Terminal 2: roda web + mobile localmente
+pnpm dev
+```
+
+### Rodar separadamente
+
+```bash
+# Só o front-end
+pnpm dev:web
+
+# Só o app mobile
+pnpm dev:mobile
+
+# Ver logs do server (Docker)
+pnpm docker:logs
+```
+
+### URLs após inicialização
+
+| Serviço | URL |
+|---|---|
+| Web (Next.js) | http://localhost:3000 |
+| Server (API) | http://localhost:3001 |
+| Health Check | http://localhost:3001/health |
+| Prisma Studio | http://localhost:5555 (quando ativo) |
+| Adminer (banco) | http://localhost:8080 |
+
+---
+
+## 📌 Comandos
+
+### Desenvolvimento
+
+```bash
+pnpm dev              # Roda web + mobile em paralelo
+pnpm dev:web          # Só o Next.js (porta 3000)
+pnpm dev:mobile       # Só o Expo
+```
+
+### Docker (server + banco)
+
+```bash
+pnpm docker:up        # Sobe server + PostgreSQL
+pnpm docker:down      # Para os containers
+pnpm docker:logs      # Logs do server em tempo real
+pnpm docker:rebuild   # Rebuilda a imagem do server e reinicia
+```
+
+### Banco de dados
+
+```bash
+pnpm db:push          # Sincroniza banco com o schema (sem migration)
+pnpm db:migrate       # Cria migration nomeada e aplica (use em produção)
+pnpm db:studio        # Abre o Prisma Studio em localhost:5555
+```
+
+### Qualidade
+
+```bash
+pnpm build            # Build de todos os apps
+pnpm lint             # ESLint em todos os apps
+pnpm format           # Prettier em todos os arquivos
+```
+
+---
+
+## 🔑 Variáveis de Ambiente
+
+> ⚠️ **Nunca commite arquivos `.env`**. O `.gitignore` já os ignora. Use o `.env.example` como referência.
+
+### `apps/web/.env.local`
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+### `apps/server/.env`
+
+```env
+# URL usada pelo server EM RUNTIME dentro do Docker
+# "postgres" é o nome do serviço no docker-compose
+DATABASE_URL="postgresql://postgres:postgres@postgres:5432/projectdb"
+
+# URL usada pelo Prisma CLI no seu terminal (migrations, studio)
+# "localhost" porque o Docker expõe a porta 5432 localmente
+DATABASE_DIRECT_URL="postgresql://postgres:postgres@localhost:5432/projectdb"
+
+PORT=3001
+WEB_URL=http://localhost:3000
+```
+
+### `apps/mobile/.env`
+
+```env
+EXPO_PUBLIC_API_URL=http://localhost:3001
+```
+
+---
+
+## 🗄 Banco de Dados
+
+O banco de dados é gerenciado pelo **Prisma ORM** com **PostgreSQL 16**.
+
+### Schema
+
+O schema fica em `apps/server/prisma/schema.prisma`. Edite para adicionar suas entidades:
+
+```prisma
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+### Fluxo de trabalho
+
+```bash
+# 1. Edite o schema.prisma
+# 2. Aplique as mudanças no banco
+pnpm db:push            # desenvolvimento (rápido, sem histórico)
+pnpm db:migrate         # produção (cria arquivo de migration)
+
+# 3. Visualize os dados no Prisma Studio
+pnpm db:studio
+```
+
+### `db:push` vs `db:migrate`
+
+| | `db:push` | `db:migrate` |
+|---|---|---|
+| **Quando usar** | Desenvolvimento, explorando o schema | Produção, mudanças definitivas |
+| **Cria arquivo de migration?** | Não | Sim (em `prisma/migrations/`) |
+| **Mantém histórico?** | Não | Sim |
+| **Pode perder dados?** | Sim (se remover campos) | Avisa antes |
+
+---
+
+## 🐳 Docker
+
+O Docker conteineriza apenas o **server** e o **PostgreSQL**. O web e o mobile rodam localmente para ter hot-reload instantâneo.
+
+### Arquitetura Docker
+
+```yaml
+services:
+  postgres:   # banco de dados
+    image: postgres:16-alpine
+    ports: 5432:5432       # exposto localmente para o Prisma CLI
+
+  server:     # API Node.js
+    build: ./apps/server   # constrói a partir do Dockerfile
+    ports: 3001:3001       # exposto localmente para web e mobile
+    depends_on:
+      postgres: { condition: service_healthy }
+```
+
+### Comandos úteis
+
+```bash
+# Ver o que está rodando
+docker ps
+
+# Entrar no container do server
+docker exec -it monorepo_server sh
+
+# Entrar no container do banco
+docker exec -it monorepo_postgres psql -U postgres -d projectdb
+
+# Remover volumes (apaga os dados do banco!)
+docker-compose down -v
+```
+
+---
+
+## 📦 Packages Compartilhados
+
+Os packages em `packages/` são **bibliotecas internas**, não publicadas no npm, usadas diretamente pelos apps.
+
+### `@repo/types`
+
+Interfaces e tipos TypeScript compartilhados entre todos os apps.
+
+```typescript
+import { User, ApiResponse, PaginatedResponse } from '@repo/types'
+```
+
+Defina aqui todas as interfaces que precisam ser consistentes entre web, server e mobile.
+
+### `@repo/utils`
+
+Funções utilitárias genéricas que não pertencem a nenhum app específico.
+
+```typescript
+import { formatDate, sleep, isProd } from '@repo/utils'
+```
+
+### `@repo/config`
+
+O `tsconfig.json` de cada app estende `packages/config/typescript/base.json`:
+
+```json
+// apps/web/tsconfig.json
+{
+  "extends": "../../packages/config/typescript/base.json",
+  ...
+}
+```
+
+---
+
+## 📐 Convenções
+
+### TypeScript
+
+```typescript
+// ✅ Correto, sem any
+async function getUser(id: string): Promise<User> { ... }
+
+// ❌ Evitar
+async function getUser(id: any): Promise<any> { ... }
+```
+
+### Imports
+
+```typescript
+// Arquivos locais do app
+import { Button } from '@/components/Button'
+
+// Packages compartilhados
+import { User } from '@repo/types'
+import { formatDate } from '@repo/utils'
+```
+
+### Nomenclatura
+
+| Contexto | Convenção | Exemplo |
+|---|---|---|
+| Variáveis e funções | `camelCase` | `getUserById` |
+| Tipos e interfaces | `PascalCase` | `UserProfile` |
+| Componentes React | `PascalCase` | `UserCard` |
+| Arquivos de componente | `PascalCase` | `UserCard.tsx` |
+| Arquivos de utilitário | `camelCase` | `formatDate.ts` |
+| Constantes | `UPPER_SNAKE_CASE` | `MAX_RETRIES` |
+
+### Estrutura de pastas no server
+
+```
+routes/      → Define URLs e métodos HTTP
+controllers/ → Recebe request, chama service, retorna response
+services/    → Lógica de negócio e acesso ao banco (Prisma)
+middlewares/ → Autenticação, logging, validação global
+```
+
+---
+
+## 🔄 Fluxo de Dados
+
+```
+Usuário clica em algo no Web ou Mobile
+           ↓
+  Requisição HTTP para localhost:3001
+           ↓
+  Fastify recebe e verifica CORS
+           ↓
+  Router direciona para o Controller
+           ↓
+  Controller chama o Service
+           ↓
+  Service usa Prisma para consultar PostgreSQL
+           ↓
+  Prisma executa SQL e retorna dados tipados
+           ↓
+  Service retorna para o Controller
+           ↓
+  Controller serializa resposta JSON
+           ↓
+  Web/Mobile renderiza os dados na tela
+```
+
+---
+
+## 🤖 Uso com IA
+
+Este boilerplate foi otimizado para ser usado com ferramentas de IA.
+
+### CONTEXT.md
+
+O arquivo `CONTEXT.md` na raiz contém um resumo completo da arquitetura, convenções, comandos e estrutura. As IAs leem este arquivo para entender o projeto sem explorar cada pasta manualmente.
+
+**Claude Code:**
+```bash
+# Na pasta do projeto
+claude
+# O Claude Code lê automaticamente o CONTEXT.md
+```
+
+**Cursor:**
+```
+# Na primeira mensagem, mencione:
+"Leia o CONTEXT.md antes de começar"
+```
+
+### Dicas para codar com IA neste projeto
+
+- Diga qual app você está modificando: `apps/web`, `apps/server`
+- Mencione os tipos: "use a interface `User` de `@repo/types`"
+- Para novas features: "crie o endpoint no server e o hook no web"
+- Mantenha o `CONTEXT.md` atualizado quando adicionar algo novo
+
+---
+
+<div align="center">
+
+Feito com TypeScript, café e muito `pnpm install`
+
+**[⬆ Voltar ao topo](#monorepo-boilerplate)**
+
+</div>
