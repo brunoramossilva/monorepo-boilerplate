@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: monorepo_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: projectdb
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d projectdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - database_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: monorepo_server
+    working_dir: /app
+    command: sh -c "pnpm install --filter server... && pnpm --filter server dev"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      WEB_URL: http://localhost:3000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/projectdb?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - backend_node_modules:/app/node_modules
+
+  adminer:
+    image: adminer
+    container_name: monorepo_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  database_data:
+  backend_node_modules:
