@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { usersRouter } from "./routes/users.route";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -19,6 +20,8 @@ app.use(express.json());
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+app.use("/users", usersRouter);
 
 const port = Number(process.env.PORT) || 3001;
 
