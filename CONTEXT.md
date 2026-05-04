@@ -320,6 +320,53 @@ monorepo-boilerplate/
 
 ---
 
+## Template de Integração (já implementado)
+
+O boilerplate inclui uma integração ponta-a-ponta de exemplo: `GET /users` no server, consumido pelo web e pelo mobile. **Use como referência ao criar novos recursos.**
+
+### Server
+
+```
+src/services/users.service.ts      → listUsers(): Promise<User[]> (mock; troque por prisma.user.findMany())
+src/controllers/users.controller.ts → getUsers(req, res): retorna { data: users }
+src/routes/users.route.ts           → usersRouter com GET "/"
+src/index.ts                        → app.use("/users", usersRouter)
+```
+
+### Cliente HTTP compartilhado em forma
+
+Tanto `apps/web/src/lib/api.ts` quanto `apps/mobile/src/lib/api.ts` exportam:
+
+```typescript
+export async function apiGet<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`);
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  const json = (await response.json()) as ApiResponse<T>;
+  return json.data;
+}
+```
+
+Diferença: `API_URL` vem de `NEXT_PUBLIC_API_URL` (web) ou `EXPO_PUBLIC_API_URL` (mobile). O helper já desempacota `ApiResponse<T>`, então o caller recebe `T` direto.
+
+### Web
+
+`apps/web/src/app/page.tsx` é um **Server Component** que faz `await apiGet<User[]>("/users")` no render. Use `cache: "no-store"` se precisar de dados sempre frescos (já está no helper).
+
+### Mobile
+
+`apps/mobile/src/app/index.tsx` é client-side: `useEffect` chama `apiGet<User[]>("/users")` e popula um `useState`. Renderiza com `FlatList` e tem estados de loading/erro.
+
+### Para adicionar uma nova entidade (`<nome>`)
+
+1. **Tipo:** adicione interface em `packages/types/src/index.ts`
+2. **Server:** crie `services/<nome>.service.ts`, `controllers/<nome>.controller.ts`, `routes/<nome>.route.ts`
+3. **Mount:** em `apps/server/src/index.ts`, `app.use("/<nome>", <nome>Router)`
+4. **Client:** em web/mobile, `apiGet<Tipo>("/<nome>")` — sem mais nada
+
+Mantenha os nomes de arquivo no padrão `<nome>.<camada>.ts` para que IAs e humanos encontrem rápido.
+
+---
+
 ## Padrões de Resposta da API
 
 **Sempre use `ApiResponse<T>` de `@repo/types`:**

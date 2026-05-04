@@ -48,6 +48,7 @@ apps/
 - [Packages Compartilhados](#-packages-compartilhados)
 - [Convenções](#-convenções)
 - [Fluxo de Dados](#-fluxo-de-dados)
+- [Template de Integração](#-template-de-integração)
 - [Uso com IA](#-uso-com-ia)
 
 ---
@@ -605,6 +606,45 @@ Usuário clica em algo no Web ou Mobile
            ↓
   Web/Mobile renderiza os dados na tela
 ```
+
+---
+
+## 🧩 Template de Integração
+
+Para servir como ponto de partida, o boilerplate já vem com uma rota `GET /users` integrada ponta-a-ponta entre **server**, **web** e **mobile**.
+
+### Server — camadas em ação
+
+```
+apps/server/src/services/users.service.ts      → retorna User[] (mock, troque por Prisma)
+apps/server/src/controllers/users.controller.ts → empacota em ApiResponse<User[]>
+apps/server/src/routes/users.route.ts           → registra GET /
+apps/server/src/index.ts                        → app.use("/users", usersRouter)
+```
+
+Teste direto na API:
+
+```bash
+curl http://localhost:3001/users
+# {"data":[{"id":"1","email":"ana@example.com",...}, ...]}
+```
+
+### Web — `apps/web/src/lib/api.ts`
+
+Helper `apiGet<T>` lê `NEXT_PUBLIC_API_URL` e desempacota `ApiResponse<T>`. A `app/page.tsx` é um Server Component que usa `await apiGet<User[]>("/users")` e renderiza a lista.
+
+### Mobile — `apps/mobile/src/lib/api.ts`
+
+Mesmo helper, lê `EXPO_PUBLIC_API_URL`. A tela `app/index.tsx` chama via `useEffect` e mostra os usuários com `FlatList`.
+
+### Como adicionar uma nova entidade
+
+1. Defina a interface em `packages/types/src/index.ts`
+2. No server, crie `services/<nome>.service.ts` → `controllers/<nome>.controller.ts` → `routes/<nome>.route.ts`
+3. Monte a rota em `apps/server/src/index.ts`: `app.use("/<nome>", <nome>Router)`
+4. No web/mobile, chame `apiGet<Tipo>("/<nome>")`
+
+> Os arquivos de exemplo são auto-explicativos e curtos — leia-os antes de criar os seus para manter o mesmo padrão.
 
 ---
 
