@@ -1,9 +1,7 @@
 {
-    "expo": {
-        "name": "mobile",
-        "slug": "mobile",
-        "plugins": [
-            "expo-router"
-        ]
-    }
+  "expo": {
+    "name": "mobile",
+    "slug": "mobile",
+    "plugins": ["expo-router"]
+  }
 }
