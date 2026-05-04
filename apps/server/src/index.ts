@@ -1,25 +1,36 @@
-import Fastify from "fastify";
-import cors from "@fastify/cors";
+import cors from "cors";
+import express from "express";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
 
-const app = Fastify({ logger: true });
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is not set");
+}
 
-app.register(cors, {
-  origin: process.env.WEB_URL ?? "http://localhost:3000",
+const adapter = new PrismaPg({ connectionString: databaseUrl });
+const prisma = new PrismaClient({ adapter });
+
+const app = express();
+
+app.use(cors({ origin: process.env.WEB_URL ?? "http://localhost:3000" }));
+app.use(express.json());
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
 });
 
-app.get("/health", async () => {
-  return { status: "ok" };
+const port = Number(process.env.PORT) || 3001;
+
+async function start() {
+  await prisma.$connect();
+  app.listen(port, () => {
+    console.log(`🚀 Server ready at http://localhost:${port}`);
+    console.log(`📦 Successfully connected with database`);
+  });
+}
+
+start().catch((error) => {
+  console.error(error);
+  process.exit(1);
 });
-
-const start = async () => {
-  try {
-    const port = Number(process.env.PORT) || 3001;
-    await app.listen({ port, host: "0.0.0.0" });
-    console.log(`Server running on port ${port}`);
-  } catch (error) {
-    app.log.error(error);
-    process.exit(1);
-  }
-};
-
-void start();
