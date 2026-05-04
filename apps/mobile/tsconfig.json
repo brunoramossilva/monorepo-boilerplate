@@ -1,27 +1,16 @@
 {
-    "extends": "../../packages/config/typescript/base.json",
-    "compilerOptions": {
-        "ignoreDeprecations": "6.0",
-        "moduleResolution": "bundler",
-        "jsx": "react-jsx",
-        "baseUrl": ".",
-        "paths": {
-            "@/*": [
-                "./src/*"
-            ],
-            "@repo/types": [
-                "../../packages/types/src"
-            ],
-            "@repo/utils": [
-                "../../packages/utils/src"
-            ]
-        }
-    },
-    "include": [
-        "src/**/*.ts",
-        "src/**/*.tsx"
-    ],
-    "exclude": [
-        "node_modules"
-    ]
+  "extends": "../../packages/config/typescript/base.json",
+  "compilerOptions": {
+    "ignoreDeprecations": "5.0",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@repo/types": ["../../packages/types/src"],
+      "@repo/utils": ["../../packages/utils/src"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules"]
 }
