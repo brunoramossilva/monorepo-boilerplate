@@ -1,12 +1,10 @@
 {
   "extends": "../../packages/config/typescript/base.json",
   "compilerOptions": {
-    "ignoreDeprecations": "5.0",
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    "module": "node16",
+    "moduleResolution": "node16",
     "outDir": "dist",
     "rootDir": "../..",
-    "baseUrl": ".",
     "paths": {
       "@repo/types": ["../../packages/types/src"],
       "@repo/utils": ["../../packages/utils/src"]

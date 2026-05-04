@@ -7,8 +7,6 @@
       }
     ],
     "moduleResolution": "bundler",
-    "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@repo/types": ["../../packages/types/src"],
