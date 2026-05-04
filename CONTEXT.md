@@ -10,26 +10,26 @@
 
 ### Apps
 
-| App | Pasta | Tecnologia | Onde roda | Porta |
-|---|---|---|---|---|
-| Front-end web | `apps/web` | Next.js 15 + React 19 + Tailwind CSS 4 | Local | `3000` |
-| API / Back-end | `apps/server` | Node.js 20 + Fastify 5 + Prisma 6 | Docker | `3001` |
-| App mobile | `apps/mobile` | React Native + Expo SDK 51 + Expo Router | Local | |
+| App            | Pasta         | Tecnologia                               | Onde roda | Porta  |
+| -------------- | ------------- | ---------------------------------------- | --------- | ------ |
+| Front-end web  | `apps/web`    | Next.js 15 + React 19 + Tailwind CSS 3   | Local     | `3000` |
+| API / Back-end | `apps/server` | Node.js 22 + Express 4 + Prisma 7        | Docker    | `3001` |
+| App mobile     | `apps/mobile` | React Native + Expo SDK 52 + Expo Router | Local     |        |
 
 ### Infraestrutura
 
-| Serviço | Onde roda | Porta |
-|---|---|---|
-| PostgreSQL 16 | Docker | `5432` |
-| Adminer (GUI banco) | Docker | `8080` |
+| Serviço             | Onde roda | Porta  |
+| ------------------- | --------- | ------ |
+| PostgreSQL 16       | Docker    | `5432` |
+| Adminer (GUI banco) | Docker    | `8080` |
 
 ### Packages internos (nunca publicados no npm)
 
-| Package | Pasta | O que contém |
-|---|---|---|
-| `@repo/types` | `packages/types/src/index.ts` | Interfaces e tipos TypeScript compartilhados |
-| `@repo/utils` | `packages/utils/src/index.ts` | Funções utilitárias reutilizáveis |
-| `@repo/config` | `packages/config/` | TSConfig base e ESLint base |
+| Package        | Pasta                         | O que contém                                 |
+| -------------- | ----------------------------- | -------------------------------------------- |
+| `@repo/types`  | `packages/types/src/index.ts` | Interfaces e tipos TypeScript compartilhados |
+| `@repo/utils`  | `packages/utils/src/index.ts` | Funções utilitárias reutilizáveis            |
+| `@repo/config` | `packages/config/`            | TSConfig base e ESLint base                  |
 
 ---
 
@@ -37,14 +37,25 @@
 
 ```
 apps/web (Next.js)   ──┐
-                       ├── HTTP → apps/server (Fastify :3001) → Prisma → PostgreSQL (:5432)
+                       ├── HTTP → apps/server (Express :3001) → Prisma → PostgreSQL (:5432)
 apps/mobile (Expo)   ──┘
 ```
 
 - Web e mobile se comunicam com o server via HTTP em `http://localhost:3001`
 - O server está no Docker; web e mobile estão na máquina local
-- O Prisma usa `DATABASE_URL` (`@postgres:5432`) em runtime dentro do Docker
-- O Prisma CLI usa `DATABASE_DIRECT_URL` (`@localhost:5432`) localmente para migrations
+- O Prisma 7 lê a URL do banco do `prisma.config.ts` (que aponta para `process.env.DATABASE_URL`)
+- Em runtime, o server instancia `PrismaClient` com o adapter `@prisma/adapter-pg`
+
+### Mensagens ao subir o Docker
+
+Após `docker compose up` (ou `pnpm docker:up`), o server imprime no log:
+
+```
+🚀 Server ready at http://localhost:3001
+📦 Successfully connected with database
+```
+
+A primeira linha confirma que o Express está escutando na porta 3001. A segunda confirma que o `PrismaClient.$connect()` validou a conexão com o PostgreSQL antes de aceitar requisições. Use `pnpm docker:logs` para acompanhar.
 
 ---
 
@@ -61,12 +72,12 @@ apps/mobile (Expo)   ──┘
 
 ```typescript
 // Arquivos locais do app, alias @/
-import { Button } from '@/components/Button'
-import { useAuth } from '@/hooks/useAuth'
+import { Button } from "@/components/Button";
+import { useAuth } from "@/hooks/useAuth";
 
 // Packages internos
-import type { User, ApiResponse } from '@repo/types'
-import { formatDate, sleep } from '@repo/utils'
+import type { User, ApiResponse } from "@repo/types";
+import { formatDate, sleep } from "@repo/utils";
 ```
 
 ### Nomenclatura
@@ -81,7 +92,7 @@ kebab-case    → pastas de rotas Next.js/Expo       (user-profile/)
 ### Estrutura do server
 
 ```
-src/routes/      → Declara as rotas (URLs + métodos HTTP)
+src/routes/      → Declara as rotas Express (URLs + métodos HTTP)
 src/controllers/ → Recebe request, chama service, retorna response
 src/services/    → Lógica de negócio + acesso ao Prisma
 src/middlewares/ → Autenticação, logging, validação global
@@ -94,26 +105,26 @@ src/middlewares/ → Autenticação, logging, validação global
 ```typescript
 // Resposta padrão da API. SEMPRE use este formato.
 export interface ApiResponse<T> {
-  data: T
-  message?: string
-  error?: string
+  data: T;
+  message?: string;
+  error?: string;
 }
 
 // Respostas paginadas
 export interface PaginatedResponse<T> {
-  data: T[]
-  total: number
-  page: number
-  pageSize: number
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 // Entidades do banco, espelham os models do Prisma
 export interface User {
-  id: string
-  email: string
-  name?: string | null
-  createdAt: string    // ISO string (não Date, pois JSON não suporta Date)
-  updatedAt: string
+  id: string;
+  email: string;
+  name?: string | null;
+  createdAt: string; // ISO string (não Date, pois JSON não suporta Date)
+  updatedAt: string;
 }
 ```
 
@@ -124,22 +135,41 @@ export interface User {
 ## Prisma
 
 **Schema:** `apps/server/prisma/schema.prisma`
+**Config:** `apps/server/prisma.config.ts`
 **Migrations:** `apps/server/prisma/migrations/`
 
+A partir do Prisma 7, a URL do banco **não fica mais no `schema.prisma`** — fica em `prisma.config.ts`, e em runtime o `PrismaClient` recebe um driver adapter (`@prisma/adapter-pg`).
+
 ```prisma
+// schema.prisma
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")        // runtime (Docker interno)
-  directUrl = env("DATABASE_DIRECT_URL") // CLI local (migrations)
+  provider = "postgresql"
 }
 ```
 
-**Por que dois campos de URL?** O server roda dentro do Docker e usa `@postgres:5432` (nome do serviço Docker). O Prisma CLI roda na máquina local e precisa de `@localhost:5432` (porta exposta pelo Docker).
+```typescript
+// prisma.config.ts
+import { defineConfig } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  datasource: { url: process.env.DATABASE_URL ?? "" },
+  migrations: { path: "prisma/migrations" },
+});
+```
+
+```typescript
+// src/index.ts (runtime)
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+```
 
 ### Comandos Prisma
 
@@ -165,11 +195,12 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ### `apps/server/.env`
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@postgres:5432/projectdb"
-DATABASE_DIRECT_URL="postgresql://postgres:postgres@localhost:5432/projectdb"
+DATABASE_URL="postgresql://postgres:postgres@postgres:5432/projectdb?schema=public"
 PORT=3001
 WEB_URL=http://localhost:3000
 ```
+
+> Para rodar comandos do Prisma CLI fora do Docker (ex: `prisma db push` local), exporte `DATABASE_URL` apontando para `localhost:5432` no shell antes do comando.
 
 ### `apps/mobile/.env`
 
@@ -230,15 +261,16 @@ monorepo-boilerplate/
 │   │
 │   ├── server/
 │   │   ├── src/
-│   │   │   ├── routes/         # Registra rotas no Fastify
+│   │   │   ├── routes/         # Registra rotas no Express
 │   │   │   ├── controllers/    # Handlers HTTP
 │   │   │   ├── services/       # Lógica de negócio + Prisma
 │   │   │   ├── middlewares/    # Auth, logging
-│   │   │   └── index.ts        # Entry point, cria app Fastify
+│   │   │   └── index.ts        # Entry point, cria app Express
 │   │   ├── prisma/
 │   │   │   ├── schema.prisma
 │   │   │   └── migrations/
-│   │   ├── Dockerfile          # Multi-stage: deps → builder → runner
+│   │   ├── prisma.config.ts    # Prisma 7 config (URL do banco fica aqui)
+│   │   ├── Dockerfile
 │   │   ├── .env
 │   │   ├── tsconfig.json       # extends ../../packages/config/typescript/base.json
 │   │   └── package.json        # name: "server"
@@ -274,17 +306,17 @@ monorepo-boilerplate/
 
 ## Decisões Técnicas
 
-| Decisão | Motivo |
-|---|---|
-| pnpm em vez de npm/yarn | Workspaces nativos, eficiente em disco, estrito com dependências |
-| Turborepo | Paraleliza tasks, cache inteligente, garante ordem de build (packages antes dos apps) |
-| Fastify em vez de Express | 2-3x mais rápido, TypeScript nativo, melhor DX com plugins |
-| Prisma v6 com `directUrl` | Configuração moderna que evita warnings; necessária para connection pooling em produção |
-| Docker só para server + banco | Web e mobile precisam de hot-reload imediato; Docker adicionaria latência |
-| `@postgres:5432` no Docker | Containers se comunicam pelo nome do serviço, não por `localhost` |
-| Tailwind CSS v4 | Sem arquivo de configuração de tema obrigatório, performance melhor no build |
-| Expo Router | Mesma API mental do Next.js App Router, facilita codar os dois em paralelo |
-| `NEXT_PUBLIC_` e `EXPO_PUBLIC_` | Prefixos obrigatórios para expor variáveis ao bundle do client (browser/app) |
+| Decisão                         | Motivo                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| pnpm em vez de npm/yarn         | Workspaces nativos, eficiente em disco, estrito com dependências                            |
+| Turborepo                       | Paraleliza tasks, cache inteligente, garante ordem de build (packages antes dos apps)       |
+| Express em vez de Fastify       | API minimalista e familiar para a maioria dos times, com ecossistema de middlewares maduro  |
+| Prisma v7 com driver adapter    | URL fica no `prisma.config.ts`, runtime usa `@prisma/adapter-pg` — alinhado ao Prisma atual |
+| Docker só para server + banco   | Web e mobile precisam de hot-reload imediato; Docker adicionaria latência                   |
+| `@postgres:5432` no Docker      | Containers se comunicam pelo nome do serviço, não por `localhost`                           |
+| Tailwind CSS v3                 | Versão estável e madura, com PostCSS pipeline tradicional                                   |
+| Expo Router                     | Mesma API mental do Next.js App Router, facilita codar os dois em paralelo                  |
+| `NEXT_PUBLIC_` e `EXPO_PUBLIC_` | Prefixos obrigatórios para expor variáveis ao bundle do client (browser/app)                |
 
 ---
 
@@ -294,21 +326,21 @@ monorepo-boilerplate/
 
 ```typescript
 // Resposta de sucesso
-return { data: user }
+return { data: user };
 
 // Resposta com mensagem
-return { data: user, message: 'Usuário criado com sucesso' }
+return { data: user, message: "Usuário criado com sucesso" };
 
-// Resposta de erro (use reply.status())
-return reply.status(404).send({ error: 'Usuário não encontrado' })
+// Resposta de erro (use res.status())
+return res.status(404).json({ error: "Usuário não encontrado" });
 
 // Resposta paginada
 return {
   data: users,
   total: 42,
   page: 1,
-  pageSize: 10
-}
+  pageSize: 10,
+};
 ```
 
 ---
@@ -325,8 +357,8 @@ interface User { ... }  // coloque em packages/types/
 
 // Não acesse o Prisma diretamente nos controllers.
 // Controllers chamam services; services usam Prisma.
-app.get('/users', async () => {
-  return await prisma.user.findMany()  // mova para um service
+app.get('/users', async (_req, res) => {
+  res.json(await prisma.user.findMany())  // mova para um service
 })
 
 // Não commite arquivos .env
@@ -338,4 +370,4 @@ DATABASE_URL="...@localhost:5432/..."  // use @postgres:5432
 
 ---
 
-*Atualizado junto com o projeto. Sempre que adicionar um novo app, package, porta ou convenção importante, atualize este arquivo.*
+_Atualizado junto com o projeto. Sempre que adicionar um novo app, package, porta ou convenção importante, atualize este arquivo._
