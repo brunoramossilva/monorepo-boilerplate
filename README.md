@@ -296,7 +296,7 @@ A primeira linha confirma que o Express está escutando, e a segunda confirma qu
 pnpm db:push
 ```
 
-> ✅ Deve exibir: `Your database is now in sync with your Prisma schema`
+> ✅ Deve exibir: `🚀 Your database is now in sync with your Prisma schema`
 
 ### 6. Verificar se tudo está funcionando
 
