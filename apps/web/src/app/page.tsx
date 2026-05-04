@@ -1,3 +1,7 @@
 export default function HomePage() {
-  return <main>Web app</main>;
+  return (
+    <main className="flex min-h-screen items-center justify-center">
+      <h1 className="text-2xl font-semibold">Web app</h1>
+    </main>
+  );
 }
