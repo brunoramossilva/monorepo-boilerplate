@@ -333,6 +333,14 @@ pnpm dev:mobile
 pnpm docker:logs
 ```
 
+### Rodar web/mobile sem o server (modo offline)
+
+O `apiGet` em [apps/web/src/lib/api.ts](apps/web/src/lib/api.ts) e [apps/mobile/src/lib/api.ts](apps/mobile/src/lib/api.ts) tem **fallback automático**: se a requisição falhar (server fora do ar, sem rede, URL errada), ele usa os dados de [`lib/mocks.ts`](apps/web/src/lib/mocks.ts) e a tela renderiza um banner amarelo avisando **"Modo offline: sem comunicação com o servidor. Os dados abaixo são mockados."**
+
+Isso permite rodar `pnpm dev:web` ou `pnpm dev:mobile` sem precisar do `pnpm docker:up`. Quando o server voltar a responder, o banner some e os dados vêm da API normalmente.
+
+> ⚠️ O fallback dispara em **qualquer falha de rede**, inclusive erros reais (ex: server retornando 500). Se vir o banner quando o server deveria estar respondendo, cheque os logs com `pnpm docker:logs`.
+
 ### URLs após inicialização
 
 | Serviço         | URL                                  |
@@ -631,18 +639,18 @@ curl http://localhost:3001/users
 
 ### Web — `apps/web/src/lib/api.ts`
 
-Helper `apiGet<T>` lê `NEXT_PUBLIC_API_URL` e desempacota `ApiResponse<T>`. A `app/page.tsx` é um Server Component que usa `await apiGet<User[]>("/users")` e renderiza a lista.
+Helper `apiGet<T>(path, fallback)` lê `NEXT_PUBLIC_API_URL`, desempacota `ApiResponse<T>` e retorna `{ data, isMocked }`. Se a requisição falhar, devolve `fallback` com `isMocked: true`. A `app/page.tsx` é um Server Component que faz `await apiGet<User[]>("/users", mockUsers)` e mostra um banner quando `isMocked`.
 
 ### Mobile — `apps/mobile/src/lib/api.ts`
 
-Mesmo helper, lê `EXPO_PUBLIC_API_URL`. A tela `app/index.tsx` chama via `useEffect` e mostra os usuários com `FlatList`.
+Mesmo helper, lê `EXPO_PUBLIC_API_URL`. A tela `app/index.tsx` chama via `useEffect`, exibe os usuários com `FlatList` e mostra o banner de modo offline quando o fallback dispara.
 
 ### Como adicionar uma nova entidade
 
 1. Defina a interface em `packages/types/src/index.ts`
 2. No server, crie `services/<nome>.service.ts` → `controllers/<nome>.controller.ts` → `routes/<nome>.route.ts`
 3. Monte a rota em `apps/server/src/index.ts`: `app.use("/<nome>", <nome>Router)`
-4. No web/mobile, chame `apiGet<Tipo>("/<nome>")`
+4. No web/mobile, adicione mocks em `lib/mocks.ts` e chame `apiGet<Tipo>("/<nome>", mockTipo)`
 
 > Os arquivos de exemplo são auto-explicativos e curtos — leia-os antes de criar os seus para manter o mesmo padrão.
 

@@ -338,30 +338,40 @@ src/index.ts                        → app.use("/users", usersRouter)
 Tanto `apps/web/src/lib/api.ts` quanto `apps/mobile/src/lib/api.ts` exportam:
 
 ```typescript
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  const json = (await response.json()) as ApiResponse<T>;
-  return json.data;
+export type ApiResult<T> = { data: T; isMocked: boolean };
+
+export async function apiGet<T>(path: string, fallback: T): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(`${API_URL}${path}`);
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    const json = (await response.json()) as ApiResponse<T>;
+    return { data: json.data, isMocked: false };
+  } catch {
+    return { data: fallback, isMocked: true };
+  }
 }
 ```
 
-Diferença: `API_URL` vem de `NEXT_PUBLIC_API_URL` (web) ou `EXPO_PUBLIC_API_URL` (mobile). O helper já desempacota `ApiResponse<T>`, então o caller recebe `T` direto.
+Diferenças por app: `API_URL` vem de `NEXT_PUBLIC_API_URL` (web) ou `EXPO_PUBLIC_API_URL` (mobile). O helper desempacota `ApiResponse<T>` e sempre retorna `{ data, isMocked }`.
+
+### Fallback offline
+
+O `fallback` é **obrigatório** e é usado automaticamente quando o fetch falha (server fora do ar, sem rede, URL errada, status non-2xx). Cada app mantém seus mocks em `src/lib/mocks.ts`. Quando `isMocked === true`, a UI deve mostrar um aviso explícito de que está sem comunicação com o servidor (banner amarelo nas telas atuais). Isso permite rodar `pnpm dev:web` / `pnpm dev:mobile` sem precisar subir o Docker.
 
 ### Web
 
-`apps/web/src/app/page.tsx` é um **Server Component** que faz `await apiGet<User[]>("/users")` no render. Use `cache: "no-store"` se precisar de dados sempre frescos (já está no helper).
+`apps/web/src/app/page.tsx` é um **Server Component** que faz `await apiGet<User[]>("/users", mockUsers)` no render e renderiza o banner condicional quando `isMocked`. Use `cache: "no-store"` se precisar de dados sempre frescos (já está no helper).
 
 ### Mobile
 
-`apps/mobile/src/app/index.tsx` é client-side: `useEffect` chama `apiGet<User[]>("/users")` e popula um `useState`. Renderiza com `FlatList` e tem estados de loading/erro.
+`apps/mobile/src/app/index.tsx` é client-side: `useEffect` chama `apiGet<User[]>("/users", mockUsers)` e popula `useState` com `data` e `isMocked`. Renderiza com `FlatList` e mostra o banner offline quando `isMocked`.
 
 ### Para adicionar uma nova entidade (`<nome>`)
 
 1. **Tipo:** adicione interface em `packages/types/src/index.ts`
 2. **Server:** crie `services/<nome>.service.ts`, `controllers/<nome>.controller.ts`, `routes/<nome>.route.ts`
 3. **Mount:** em `apps/server/src/index.ts`, `app.use("/<nome>", <nome>Router)`
-4. **Client:** em web/mobile, `apiGet<Tipo>("/<nome>")` — sem mais nada
+4. **Client:** adicione mocks em `lib/mocks.ts` e chame `apiGet<Tipo>("/<nome>", mockTipo)` — trate `isMocked` na UI
 
 Mantenha os nomes de arquivo no padrão `<nome>.<camada>.ts` para que IAs e humanos encontrem rápido.
 
