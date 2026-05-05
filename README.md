@@ -394,6 +394,15 @@ pnpm format           # Prettier em todos os arquivos
 
 > ⚠️ **Nunca commite arquivos `.env`**. O `.gitignore` já os ignora. Use o `.env.example` como referência.
 
+### Por que o projeto roda sem criar `.env` em desenvolvimento
+
+Você consegue subir back, front, mobile e banco sem criar nenhum `.env`. Isso acontece por **dois mecanismos distintos**, não por um só:
+
+1. **Server e PostgreSQL (no Docker)** — o `docker-compose.yml` injeta as variáveis diretamente nos containers pelo bloco `environment:` (`DATABASE_URL`, `PORT`, `WEB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`). Os processos nunca leem um arquivo `.env` — recebem tudo já populado pelo Docker.
+2. **Web e Mobile (locais)** — não recebem nada do Docker. Funcionam sem `.env` porque o código tem **fallback hardcoded** em [apps/web/src/lib/api.ts](apps/web/src/lib/api.ts) e [apps/mobile/src/lib/api.ts](apps/mobile/src/lib/api.ts): `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"` (e o equivalente `EXPO_PUBLIC_API_URL` no mobile). Como o fallback aponta pra porta que o Docker expõe, o client encontra o server sem configuração extra.
+
+> 🚨 **Em produção isso não vai do jeito que está.** As credenciais do banco (`postgres:postgres`) estão em texto puro no `docker-compose.yml` — bom pra dev local, inseguro pra prod. No deploy real, remova o bloco `environment:` do compose e use `env_file: ./apps/server/.env` (com o `.env` fora do Git) ou um secrets manager (Vault, AWS Secrets Manager, Doppler, etc.). Os fallbacks `?? "http://localhost:3001"` no web/mobile também deixam de fazer sentido — o build do Next/Expo precisa receber a URL real via variável de ambiente no momento do build, senão o app empacotado vai tentar bater em `localhost`.
+
 ### `apps/web/.env.local`
 
 ```env

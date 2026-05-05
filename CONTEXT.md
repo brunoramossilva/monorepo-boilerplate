@@ -184,6 +184,15 @@ pnpm db:generate  # Regenera o Prisma Client após mudanças no schema
 
 ## Variáveis de Ambiente
 
+### Por que o projeto roda sem `.env` em dev (e por que isso muda em produção)
+
+Em desenvolvimento, dá pra subir back, front, mobile e banco sem criar nenhum `.env`. Isso acontece por **dois mecanismos distintos**:
+
+1. **Server e PostgreSQL** rodam no Docker e recebem as variáveis pelo bloco `environment:` do `docker-compose.yml` (`DATABASE_URL`, `PORT`, `WEB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`). Os processos não leem nenhum `.env` — o Docker injeta tudo direto no container.
+2. **Web e Mobile** rodam localmente e não dependem do Docker. Funcionam sem `.env` porque o código tem fallback hardcoded em `apps/web/src/lib/api.ts` e `apps/mobile/src/lib/api.ts`: `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"` (e `EXPO_PUBLIC_API_URL` no mobile). O fallback bate com a porta que o Docker expõe, então o client acha o server sem configuração extra.
+
+**Em produção isso muda:** as credenciais do banco no `docker-compose.yml` estão em texto puro, o que é aceitável só pra dev. No deploy, troca-se o bloco `environment:` do compose por `env_file:` apontando para um `.env` fora do Git, ou usa-se secrets manager (Vault, AWS Secrets, Doppler). Os fallbacks `?? "http://localhost:3001"` no client também perdem sentido — o build do Next/Expo precisa receber a URL real via variável de ambiente no momento do build.
+
 ### `apps/web/.env.local`
 
 ```env
