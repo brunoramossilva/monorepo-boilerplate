@@ -121,12 +121,13 @@ Em vez de criar e configurar três repositórios separados, você tem tudo em um
 
 ### App Web (`apps/web`)
 
-| Tecnologia       | Versão | Para que serve                                         |
-| ---------------- | ------ | ------------------------------------------------------ |
-| **Next.js**      | 15     | Framework React com App Router, SSR, SSG e otimizações |
-| **React**        | 19     | Biblioteca de interface de usuário                     |
-| **Tailwind CSS** | 3      | Framework CSS utilitário, estilos diretamente no JSX   |
-| **TypeScript**   | 5      | Tipagem estática em toda a aplicação                   |
+| Tecnologia       | Versão | Para que serve                                                |
+| ---------------- | ------ | ------------------------------------------------------------- |
+| **Next.js**      | 15     | Framework React com App Router, SSR, SSG e otimizações        |
+| **React**        | 19     | Biblioteca de interface de usuário                            |
+| **Tailwind CSS** | 3      | Framework CSS utilitário, estilos diretamente no JSX          |
+| **Axios**        | 1      | Cliente HTTP usado para falar com o server (`apps/web/src/lib/api.ts`) |
+| **TypeScript**   | 5      | Tipagem estática em toda a aplicação                          |
 
 ### App Server (`apps/server`)
 
@@ -141,11 +142,12 @@ Em vez de criar e configurar três repositórios separados, você tem tudo em um
 
 ### App Mobile (`apps/mobile`)
 
-| Tecnologia       | Versão | Para que serve                                              |
-| ---------------- | ------ | ----------------------------------------------------------- |
-| **React Native** | 0.76   | Apps iOS e Android com React e TypeScript                   |
-| **Expo**         | SDK 52 | Plataforma de desenvolvimento que simplifica o React Native |
-| **Expo Router**  | 4      | Sistema de rotas baseado em arquivos (igual ao Next.js)     |
+| Tecnologia       | Versão | Para que serve                                                            |
+| ---------------- | ------ | ------------------------------------------------------------------------- |
+| **React Native** | 0.76   | Apps iOS e Android com React e TypeScript                                 |
+| **Expo**         | SDK 52 | Plataforma de desenvolvimento que simplifica o React Native               |
+| **Expo Router**  | 4      | Sistema de rotas baseado em arquivos (igual ao Next.js)                   |
+| **Axios**        | 1      | Cliente HTTP usado para falar com o server (`apps/mobile/src/lib/api.ts`) |
 
 ### Infraestrutura
 
@@ -670,9 +672,25 @@ curl http://localhost:3001/users
 # {"data":[{"id":"1","email":"ana@example.com",...}, ...]}
 ```
 
+### Cliente HTTP: Axios
+
+A comunicação entre web/mobile e o server usa **Axios**, não `fetch` puro. Cada app cria sua própria instância via `axios.create({ baseURL })` em `lib/api.ts` e a exporta como `api` para uso direto em chamadas mais sofisticadas (ex: `api.post`, `api.put`, headers customizados, interceptors). O helper `apiGet<T>(path, fallback)` é construído em cima dessa instância e cobre o caso comum (GET com fallback offline).
+
+```typescript
+// apps/web/src/lib/api.ts (e apps/mobile/src/lib/api.ts, com EXPO_PUBLIC_API_URL)
+import axios from "axios";
+
+export const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
+  headers: { "Content-Type": "application/json" },
+});
+```
+
+> **Por que axios em vez de `fetch`?** Tipagem genérica nas respostas (`api.get<ApiResponse<T>>`), interceptors prontos para auth/refresh, transformação automática de JSON, timeouts e cancelamento mais simples, e a mesma API funciona idêntica em web e mobile. Para casos mais avançados (ex: interceptor de token), edite a instância `api` em `lib/api.ts`.
+
 ### Web: `apps/web/src/lib/api.ts`
 
-Helper `apiGet<T>(path, fallback)` lê `NEXT_PUBLIC_API_URL`, desempacota `ApiResponse<T>` e retorna `{ data, isMocked }`. Se a requisição falhar, devolve `fallback` com `isMocked: true`. A `app/page.tsx` é um Server Component que faz `await apiGet<User[]>("/users", mockUsers)` e mostra um banner quando `isMocked`.
+Helper `apiGet<T>(path, fallback)` usa a instância `api` (axios), desempacota `ApiResponse<T>` e retorna `{ data, isMocked }`. Se a requisição falhar, devolve `fallback` com `isMocked: true`. A `app/page.tsx` é um Server Component que faz `await apiGet<User[]>("/users", mockUsers)` e mostra um banner quando `isMocked`.
 
 ### Mobile: `apps/mobile/src/lib/api.ts`
 

@@ -349,6 +349,7 @@ monorepo-boilerplate/
 | `@postgres:5432` no Docker      | Containers se comunicam pelo nome do serviço, não por `localhost`                           |
 | Tailwind CSS v3                 | Versão estável e madura, com PostCSS pipeline tradicional                                   |
 | Expo Router                     | Mesma API mental do Next.js App Router, facilita codar os dois em paralelo                  |
+| Axios 1.7.9                    | Tipagem genérica nas respostas, interceptors prontos para auth/refresh, mesma API em web e mobile, transformação JSON automática |
 | `NEXT_PUBLIC_` e `EXPO_PUBLIC_` | Prefixos obrigatórios para expor variáveis ao bundle do client (browser/app)                |
 
 ---
@@ -368,28 +369,46 @@ src/index.ts                        → app.use("/users", usersRouter)
 
 ### Cliente HTTP compartilhado em forma
 
-Tanto `apps/web/src/lib/api.ts` quanto `apps/mobile/src/lib/api.ts` exportam:
+Web e mobile usam **Axios**. Cada app cria sua própria instância em `lib/api.ts` via `axios.create({ baseURL })` e exporta tanto a instância `api` (para chamadas avançadas: `api.post`, `api.put`, interceptors, headers customizados) quanto o helper `apiGet<T>` para o caso comum.
 
 ```typescript
+// apps/web/src/lib/api.ts (mobile usa EXPO_PUBLIC_API_URL no lugar)
+import axios from "axios";
+import type { ApiResponse } from "@repo/types";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+export const api = axios.create({
+  baseURL: API_URL,
+  headers: { "Content-Type": "application/json" },
+});
+
 export type ApiResult<T> = { data: T; isMocked: boolean };
 
 export async function apiGet<T>(path: string, fallback: T): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(`${API_URL}${path}`);
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-    const json = (await response.json()) as ApiResponse<T>;
-    return { data: json.data, isMocked: false };
+    const { data } = await api.get<ApiResponse<T>>(path, {
+      headers: { "Cache-Control": "no-store" },
+    });
+    return { data: data.data, isMocked: false };
   } catch {
     return { data: fallback, isMocked: true };
   }
 }
 ```
 
-Diferenças por app: `API_URL` vem de `NEXT_PUBLIC_API_URL` (web) ou `EXPO_PUBLIC_API_URL` (mobile). O helper desempacota `ApiResponse<T>` e sempre retorna `{ data, isMocked }`.
+Diferenças por app: `API_URL` vem de `NEXT_PUBLIC_API_URL` (web) ou `EXPO_PUBLIC_API_URL` (mobile); o web acrescenta `Cache-Control: no-store` na chamada por causa do Server Component cacheável. O helper desempacota `ApiResponse<T>` e sempre retorna `{ data, isMocked }`.
+
+**Quando usar `api` direto vs `apiGet`:**
+
+- `apiGet<T>(path, fallback)` → GET simples com fallback offline. Use por padrão para listagens e leituras.
+- `api.post`, `api.put`, `api.delete`, `api.get` direto → quando precisar de body, headers customizados, status code específico ou não quiser fallback automático. Trate o erro com `try/catch` no caller.
+
+Para adicionar interceptors (ex: anexar token JWT, refresh automático, log centralizado), edite a instância `api` em `lib/api.ts` com `api.interceptors.request.use(...)` ou `api.interceptors.response.use(...)`. Esse é o ponto único de configuração — não importe `axios` direto em outros arquivos.
 
 ### Fallback offline
 
-O `fallback` é **obrigatório** e é usado automaticamente quando o fetch falha (server fora do ar, sem rede, URL errada, status non-2xx). Cada app mantém seus mocks em `src/lib/mocks.ts`. Quando `isMocked === true`, a UI deve mostrar um aviso explícito de que está sem comunicação com o servidor (banner amarelo nas telas atuais). Isso permite rodar `pnpm dev:web` / `pnpm dev:mobile` sem precisar subir o Docker.
+O `fallback` é **obrigatório** e é usado automaticamente quando a requisição falha (server fora do ar, sem rede, URL errada, status non-2xx). Cada app mantém seus mocks em `src/lib/mocks.ts`. Quando `isMocked === true`, a UI deve mostrar um aviso explícito de que está sem comunicação com o servidor (banner amarelo nas telas atuais). Isso permite rodar `pnpm dev:web` / `pnpm dev:mobile` sem precisar subir o Docker.
 
 ### Web
 
