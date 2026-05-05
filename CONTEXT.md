@@ -138,7 +138,7 @@ export interface User {
 **Config:** `apps/server/prisma.config.ts`
 **Migrations:** `apps/server/prisma/migrations/`
 
-A partir do Prisma 7, a URL do banco **não fica mais no `schema.prisma`** — fica em `prisma.config.ts`, e em runtime o `PrismaClient` recebe um driver adapter (`@prisma/adapter-pg`).
+A partir do Prisma 7, a URL do banco **não fica mais no `schema.prisma`**: fica em `prisma.config.ts`, e em runtime o `PrismaClient` recebe um driver adapter (`@prisma/adapter-pg`).
 
 ```prisma
 // schema.prisma
@@ -188,10 +188,10 @@ pnpm db:generate  # Regenera o Prisma Client após mudanças no schema
 
 Em desenvolvimento, dá pra subir back, front, mobile e banco sem criar nenhum `.env`. Isso acontece por **dois mecanismos distintos**:
 
-1. **Server e PostgreSQL** rodam no Docker e recebem as variáveis pelo bloco `environment:` do `docker-compose.yml` (`DATABASE_URL`, `PORT`, `WEB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`). Os processos não leem nenhum `.env` — o Docker injeta tudo direto no container.
+1. **Server e PostgreSQL** rodam no Docker e recebem as variáveis pelo bloco `environment:` do `docker-compose.yml` (`DATABASE_URL`, `PORT`, `WEB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`). Os processos não leem nenhum `.env`; o Docker injeta tudo direto no container.
 2. **Web e Mobile** rodam localmente e não dependem do Docker. Funcionam sem `.env` porque o código tem fallback hardcoded em `apps/web/src/lib/api.ts` e `apps/mobile/src/lib/api.ts`: `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"` (e `EXPO_PUBLIC_API_URL` no mobile). O fallback bate com a porta que o Docker expõe, então o client acha o server sem configuração extra.
 
-**Em produção isso muda:** as credenciais do banco no `docker-compose.yml` estão em texto puro, o que é aceitável só pra dev. No deploy, troca-se o bloco `environment:` do compose por `env_file:` apontando para um `.env` fora do Git, ou usa-se secrets manager (Vault, AWS Secrets, Doppler). Os fallbacks `?? "http://localhost:3001"` no client também perdem sentido — o build do Next/Expo precisa receber a URL real via variável de ambiente no momento do build.
+**Em produção isso muda:** as credenciais do banco no `docker-compose.yml` estão em texto puro, o que é aceitável só pra dev. No deploy, troca-se o bloco `environment:` do compose por `env_file:` apontando para um `.env` fora do Git, ou usa-se secrets manager (Vault, AWS Secrets, Doppler). Os fallbacks `?? "http://localhost:3001"` no client também perdem sentido: o build do Next/Expo precisa receber a URL real via variável de ambiente no momento do build.
 
 ### `apps/web/.env.local`
 
@@ -248,6 +248,30 @@ pnpm build            # Compila todos os apps
 pnpm lint             # ESLint em tudo
 pnpm format           # Prettier em tudo
 ```
+
+### Equivalentes "clássicos" (alternativos)
+
+Os scripts acima são wrappers. Os comandos canônicos do Docker, Prisma, Next.js e Expo seguem funcionando. Use o que for mais natural ou se estiver depurando algo que precise do CLI direto.
+
+```bash
+# Docker (na raiz)
+docker compose up -d                              # ≈ pnpm docker:up
+docker compose up --build                         # ≈ pnpm docker:rebuild (foreground)
+docker compose down                               # ≈ pnpm docker:down
+docker compose logs -f server                     # ≈ pnpm docker:logs
+
+# Prisma (dentro de apps/server, ou com `pnpm --filter server exec` na raiz)
+npx prisma migrate dev --name <nome_da_migration> # ≈ pnpm db:migrate
+npx prisma db push                                # ≈ pnpm db:push
+npx prisma generate                               # ≈ pnpm db:generate
+npx prisma studio                                 # ≈ pnpm db:studio
+
+# Dev local (dentro do app correspondente)
+cd apps/web && pnpm dev                           # ≈ pnpm dev:web (next dev)
+cd apps/mobile && pnpm dev                        # ≈ pnpm dev:mobile (expo start)
+```
+
+> Para rodar Prisma CLI fora do Docker, exporte `DATABASE_URL` apontando para `localhost:5432` antes (o host `postgres` só resolve dentro da rede do compose).
 
 ---
 
@@ -320,7 +344,7 @@ monorepo-boilerplate/
 | pnpm em vez de npm/yarn         | Workspaces nativos, eficiente em disco, estrito com dependências                            |
 | Turborepo                       | Paraleliza tasks, cache inteligente, garante ordem de build (packages antes dos apps)       |
 | Express em vez de Fastify       | API minimalista e familiar para a maioria dos times, com ecossistema de middlewares maduro  |
-| Prisma v7 com driver adapter    | URL fica no `prisma.config.ts`, runtime usa `@prisma/adapter-pg` — alinhado ao Prisma atual |
+| Prisma v7 com driver adapter    | URL fica no `prisma.config.ts`, runtime usa `@prisma/adapter-pg`, alinhado ao Prisma atual  |
 | Docker só para server + banco   | Web e mobile precisam de hot-reload imediato; Docker adicionaria latência                   |
 | `@postgres:5432` no Docker      | Containers se comunicam pelo nome do serviço, não por `localhost`                           |
 | Tailwind CSS v3                 | Versão estável e madura, com PostCSS pipeline tradicional                                   |
@@ -380,7 +404,7 @@ O `fallback` é **obrigatório** e é usado automaticamente quando o fetch falha
 1. **Tipo:** adicione interface em `packages/types/src/index.ts`
 2. **Server:** crie `services/<nome>.service.ts`, `controllers/<nome>.controller.ts`, `routes/<nome>.route.ts`
 3. **Mount:** em `apps/server/src/index.ts`, `app.use("/<nome>", <nome>Router)`
-4. **Client:** adicione mocks em `lib/mocks.ts` e chame `apiGet<Tipo>("/<nome>", mockTipo)` — trate `isMocked` na UI
+4. **Client:** adicione mocks em `lib/mocks.ts` e chame `apiGet<Tipo>("/<nome>", mockTipo)`; trate `isMocked` na UI
 
 Mantenha os nomes de arquivo no padrão `<nome>.<camada>.ts` para que IAs e humanos encontrem rápido.
 

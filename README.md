@@ -388,6 +388,30 @@ pnpm lint             # ESLint em todos os apps
 pnpm format           # Prettier em todos os arquivos
 ```
 
+### Comandos clássicos (sem os atalhos do pnpm)
+
+Os scripts `pnpm` acima são apenas atalhos. Se você está acostumado com os comandos "puros" do Docker, Prisma, Next.js e Expo, eles continuam funcionando normalmente. Use o que for mais natural pra você.
+
+```bash
+# Docker (na raiz do repo)
+docker compose up -d                              # ≈ pnpm docker:up
+docker compose up --build                         # ≈ pnpm docker:rebuild (em foreground)
+docker compose down                               # ≈ pnpm docker:down
+docker compose logs -f server                     # ≈ pnpm docker:logs
+
+# Prisma (dentro de apps/server, ou com --filter server na raiz)
+npx prisma migrate dev --name <nome_da_migration> # ≈ pnpm db:migrate
+npx prisma db push                                # ≈ pnpm db:push
+npx prisma generate                               # ≈ pnpm db:generate
+npx prisma studio                                 # ≈ pnpm db:studio
+
+# Dev local (dentro do app correspondente)
+cd apps/web && pnpm dev                           # ≈ pnpm dev:web (Next.js: next dev)
+cd apps/mobile && pnpm dev                        # ≈ pnpm dev:mobile (Expo: expo start)
+```
+
+> Para os comandos do Prisma fora do Docker, lembre de exportar `DATABASE_URL` apontando para `localhost:5432` antes (o host `postgres` só resolve dentro da rede do Docker).
+
 ---
 
 ## 🔑 Variáveis de Ambiente
@@ -398,10 +422,10 @@ pnpm format           # Prettier em todos os arquivos
 
 Você consegue subir back, front, mobile e banco sem criar nenhum `.env`. Isso acontece por **dois mecanismos distintos**, não por um só:
 
-1. **Server e PostgreSQL (no Docker)** — o `docker-compose.yml` injeta as variáveis diretamente nos containers pelo bloco `environment:` (`DATABASE_URL`, `PORT`, `WEB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`). Os processos nunca leem um arquivo `.env` — recebem tudo já populado pelo Docker.
-2. **Web e Mobile (locais)** — não recebem nada do Docker. Funcionam sem `.env` porque o código tem **fallback hardcoded** em [apps/web/src/lib/api.ts](apps/web/src/lib/api.ts) e [apps/mobile/src/lib/api.ts](apps/mobile/src/lib/api.ts): `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"` (e o equivalente `EXPO_PUBLIC_API_URL` no mobile). Como o fallback aponta pra porta que o Docker expõe, o client encontra o server sem configuração extra.
+1. **Server e PostgreSQL (no Docker):** o `docker-compose.yml` injeta as variáveis diretamente nos containers pelo bloco `environment:` (`DATABASE_URL`, `PORT`, `WEB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`). Os processos nunca leem um arquivo `.env`; recebem tudo já populado pelo Docker.
+2. **Web e Mobile (locais):** não recebem nada do Docker. Funcionam sem `.env` porque o código tem **fallback hardcoded** em [apps/web/src/lib/api.ts](apps/web/src/lib/api.ts) e [apps/mobile/src/lib/api.ts](apps/mobile/src/lib/api.ts): `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"` (e o equivalente `EXPO_PUBLIC_API_URL` no mobile). Como o fallback aponta pra porta que o Docker expõe, o client encontra o server sem configuração extra.
 
-> 🚨 **Em produção isso não vai do jeito que está.** As credenciais do banco (`postgres:postgres`) estão em texto puro no `docker-compose.yml` — bom pra dev local, inseguro pra prod. No deploy real, remova o bloco `environment:` do compose e use `env_file: ./apps/server/.env` (com o `.env` fora do Git) ou um secrets manager (Vault, AWS Secrets Manager, Doppler, etc.). Os fallbacks `?? "http://localhost:3001"` no web/mobile também deixam de fazer sentido — o build do Next/Expo precisa receber a URL real via variável de ambiente no momento do build, senão o app empacotado vai tentar bater em `localhost`.
+> 🚨 **Em produção isso não vai do jeito que está.** As credenciais do banco (`postgres:postgres`) estão em texto puro no `docker-compose.yml`: bom pra dev local, inseguro pra prod. No deploy real, remova o bloco `environment:` do compose e use `env_file: ./apps/server/.env` (com o `.env` fora do Git) ou um secrets manager (Vault, AWS Secrets Manager, Doppler, etc.). Os fallbacks `?? "http://localhost:3001"` no web/mobile também deixam de fazer sentido: o build do Next/Expo precisa receber a URL real via variável de ambiente no momento do build, senão o app empacotado vai tentar bater em `localhost`.
 
 ### `apps/web/.env.local`
 
@@ -436,7 +460,7 @@ O banco de dados é gerenciado pelo **Prisma ORM** com **PostgreSQL 16**.
 
 ### Schema e configuração
 
-A partir do Prisma 7, a URL de conexão **não fica mais no `schema.prisma`** — fica em `apps/server/prisma.config.ts`. O schema só descreve a estrutura do banco:
+A partir do Prisma 7, a URL de conexão **não fica mais no `schema.prisma`**: fica em `apps/server/prisma.config.ts`. O schema só descreve a estrutura do banco:
 
 ```prisma
 // apps/server/prisma/schema.prisma
@@ -630,7 +654,7 @@ Usuário clica em algo no Web ou Mobile
 
 Para servir como ponto de partida, o boilerplate já vem com uma rota `GET /users` integrada ponta-a-ponta entre **server**, **web** e **mobile**.
 
-### Server — camadas em ação
+### Server: camadas em ação
 
 ```
 apps/server/src/services/users.service.ts      → retorna User[] (mock, troque por Prisma)
@@ -646,11 +670,11 @@ curl http://localhost:3001/users
 # {"data":[{"id":"1","email":"ana@example.com",...}, ...]}
 ```
 
-### Web — `apps/web/src/lib/api.ts`
+### Web: `apps/web/src/lib/api.ts`
 
 Helper `apiGet<T>(path, fallback)` lê `NEXT_PUBLIC_API_URL`, desempacota `ApiResponse<T>` e retorna `{ data, isMocked }`. Se a requisição falhar, devolve `fallback` com `isMocked: true`. A `app/page.tsx` é um Server Component que faz `await apiGet<User[]>("/users", mockUsers)` e mostra um banner quando `isMocked`.
 
-### Mobile — `apps/mobile/src/lib/api.ts`
+### Mobile: `apps/mobile/src/lib/api.ts`
 
 Mesmo helper, lê `EXPO_PUBLIC_API_URL`. A tela `app/index.tsx` chama via `useEffect`, exibe os usuários com `FlatList` e mostra o banner de modo offline quando o fallback dispara.
 
@@ -661,7 +685,7 @@ Mesmo helper, lê `EXPO_PUBLIC_API_URL`. A tela `app/index.tsx` chama via `useEf
 3. Monte a rota em `apps/server/src/index.ts`: `app.use("/<nome>", <nome>Router)`
 4. No web/mobile, adicione mocks em `lib/mocks.ts` e chame `apiGet<Tipo>("/<nome>", mockTipo)`
 
-> Os arquivos de exemplo são auto-explicativos e curtos — leia-os antes de criar os seus para manter o mesmo padrão.
+> Os arquivos de exemplo são auto-explicativos e curtos. Leia-os antes de criar os seus para manter o mesmo padrão.
 
 ---
 
